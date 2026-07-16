@@ -6,8 +6,8 @@ __pycache__/
 output/*
 !output/.gitkeep
 
-data/input/*
-!data/input/dbz.jpg
+data/generated/*
+!data/generated/.gitkeep
 
 input/pieces/*
 !input/pieces/.gitkeep
