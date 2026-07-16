@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+output/*
+!output/.gitkeep
+data/input/*
+!data/input/dbz.jpg
