@@ -123,6 +123,51 @@ def dividir_imagen(
                 )
     return piezas
 
+# Dividimos la imagen usando Diagramas de Voronoi
+def dividir_voronoi(imagen: np.ndarray, cantidad_piezas: int, semilla: int) -> list[Pieza]:
+    alto, ancho = imagen.shape[:2]
+    rect = (0, 0, ancho, alto)
+    subdiv = cv2.Subdiv2D(rect)
+    
+    generador = random.Random(semilla)
+    for _ in range(cantidad_piezas):
+        x = generador.randint(10, ancho - 10)
+        y = generador.randint(10, alto - 10)
+        subdiv.insert((x, y))
+        
+    facetas, _ = subdiv.getVoronoiFacetList([])
+    
+    piezas = []
+    for i, faceta in enumerate(facetas):
+        if len(faceta) == 0:
+            continue
+        puntos = []
+        for punto in faceta:
+            px = max(0, min(ancho - 1, int(punto[0])))
+            py = max(0, min(alto - 1, int(punto[1])))
+            puntos.append([px, py])
+            
+        x_coords = [p[0] for p in puntos]
+        y_coords = [p[1] for p in puntos]
+        x_min, x_max = min(x_coords), max(x_coords)
+        y_min, y_max = min(y_coords), max(y_coords)
+        
+        vertices_relativos = [[px - x_min, py - y_min] for px, py in puntos]
+        recorte = imagen[y_min:y_max+1, x_min:x_max+1]
+        
+        pieza_img = recortar_figura(recorte, vertices_relativos)
+        
+        piezas.append(
+            Pieza(
+                id=i,
+                imagen=pieza_img,
+                fila=y_min,
+                columna=x_min,
+                grupo=0,
+                vertices=vertices_relativos,
+            )
+        )
+    return piezas
 
 # Mezclamos por separado las piezas que tienen la misma orientación.
 def mezclar_piezas(piezas: list[Pieza], semilla: int) -> list[int]:
@@ -196,7 +241,10 @@ def generar_rompecabezas(
 ) -> dict[str, Any]:
     original = cargar_imagen(ruta_imagen)
     procesada = ajustar_imagen(original, filas, columnas)
-    piezas = dividir_imagen(procesada, filas, columnas, lados)
+    if lados == 0:
+        piezas = dividir_voronoi(procesada, filas * columnas, semilla)
+    else:
+        piezas = dividir_imagen(procesada, filas, columnas, lados)
     orden = mezclar_piezas(piezas, semilla)
 
     carpeta_piezas = directorio_salida / "pieces"
@@ -208,25 +256,26 @@ def generar_rompecabezas(
     for pieza in piezas:
         guardar_png(carpeta_piezas / f"piece_{pieza.id:03d}.png", pieza.imagen)
 
-    rompecabezas = renderizar(piezas, orden, filas, columnas)
-    guardar_png(directorio_salida / "shuffled_puzzle.png", rompecabezas)
-    guardar_png(
-        directorio_salida / "shuffled_puzzle_debug.png",
-        agregar_bordes(rompecabezas, piezas),
-    )
+    if lados != 0:
+        rompecabezas = renderizar(piezas, orden, filas, columnas)
+        guardar_png(directorio_salida / "shuffled_puzzle.png", rompecabezas)
+        guardar_png(
+            directorio_salida / "shuffled_puzzle_debug.png",
+            agregar_bordes(rompecabezas, piezas),
+        )
 
     alto_original, ancho_original = original.shape[:2]
     alto, ancho = procesada.shape[:2]
     posiciones = {pieza_id: posicion for posicion, pieza_id in enumerate(orden)}
-    nombres = {3: "triangulo", 4: "cuadrilatero", 6: "hexagono"}
+    nombres = {0: "voronoi", 3: "triangulo", 4: "cuadrilatero", 6: "hexagono"}
     metadata = {
         "imagen_origen": ruta_imagen.name,
         "ancho_original": ancho_original,
         "alto_original": alto_original,
         "ancho_procesado": ancho,
         "alto_procesado": alto,
-        "filas": filas,
-        "columnas": columnas,
+        "filas": filas if lados != 0 else None,
+        "columnas": columnas if lados != 0 else None,
         "lados": lados,
         "tipo_pieza": nombres[lados],
         "cantidad_piezas": len(piezas),
@@ -236,8 +285,10 @@ def generar_rompecabezas(
             {
                 "id": pieza.id,
                 "archivo": f"piece_{pieza.id:03d}.png",
-                "fila_original": pieza.fila,
-                "columna_original": pieza.columna,
+                "fila_original": pieza.fila if lados != 0 else None,
+                "columna_original": pieza.columna if lados != 0 else None,
+                "x_origen": pieza.columna if lados == 0 else None,
+                "y_origen": pieza.fila if lados == 0 else None,
                 "grupo_orientacion": pieza.grupo,
                 "vertices": pieza.vertices,
                 "posicion_mezclada": posiciones[pieza.id],
