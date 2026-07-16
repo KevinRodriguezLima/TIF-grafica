@@ -11,7 +11,7 @@ def crear_parser() -> argparse.ArgumentParser:
     generar.add_argument("--input", type=Path, required=True)
     generar.add_argument("--rows", type=int, required=True)
     generar.add_argument("--cols", type=int, required=True)
-    generar.add_argument("--sides", type=int, choices=[3, 4, 6], default=4)
+    generar.add_argument("--sides", type=int, choices=[0, 3, 4, 6], default=4, help="Lados por pieza (0 = Voronoi)")
     generar.add_argument("--seed", type=int, default=42)
     generar.add_argument("--output", type=Path, required=True)
     return parser
