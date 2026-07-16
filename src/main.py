@@ -11,6 +11,7 @@ def crear_parser() -> argparse.ArgumentParser:
     generar.add_argument("--input", type=Path, required=True)
     generar.add_argument("--rows", type=int, required=True)
     generar.add_argument("--cols", type=int, required=True)
+    generar.add_argument("--sides", type=int, choices=[3, 4, 6], default=4)
     generar.add_argument("--seed", type=int, default=42)
     generar.add_argument("--output", type=Path, required=True)
     return parser
@@ -25,6 +26,7 @@ def main() -> int:
             argumentos.input,
             argumentos.rows,
             argumentos.cols,
+            argumentos.sides,
             argumentos.seed,
             argumentos.output,
         )
@@ -35,6 +37,7 @@ def main() -> int:
     logging.info("Rompecabezas generado correctamente.")
     logging.info("Imagen procesada: %d x %d", resultado["ancho"], resultado["alto"])
     logging.info("Cuadrícula: %d x %d", argumentos.rows, argumentos.cols)
+    logging.info("Lados por pieza: %d", argumentos.sides)
     logging.info("Piezas: %d", resultado["cantidad_piezas"])
     logging.info("Salida: %s", argumentos.output)
     return 0

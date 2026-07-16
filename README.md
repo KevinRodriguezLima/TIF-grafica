@@ -21,14 +21,22 @@ pip install -r requirements.txt
 ```bash
 python -m src.main generate \
   --input data/input/dbz.jpg \
-  --rows 3 --cols 3 --seed 42 \
+  --rows 3 --cols 3 --sides 4 --seed 42 \
   --output output/test_001
 ```
 
 La salida contiene la imagen procesada, las piezas PNG, dos versiones del rompecabezas desordenado y sus metadatos JSON.
 
+Formas disponibles:
+
+- `--sides 3`: dos triángulos por cada celda.
+- `--sides 4`: un cuadrilátero por cada celda.
+- `--sides 6`: dos hexágonos irregulares por cada celda.
+
+Los triángulos y hexágonos usan transparencia para conservar sus lados rectos sin perder partes de la imagen.
+
 ## Estado breve
 
-- Prototipo del generador de piezas rectangulares: disponible para revisión.
+- Generador de piezas de 3, 4 y 6 lados: disponible para revisión.
 - Voronoi: alternativa pendiente de evaluar, no implementada todavía.
 - Solver automático, TensorFlow e interfaz: fuera del trabajo actual.

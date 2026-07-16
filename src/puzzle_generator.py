@@ -1,10 +1,21 @@
 import json
 import random
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import cv2
 import numpy as np
+
+
+@dataclass
+class Pieza:
+    id: int
+    imagen: np.ndarray
+    fila: int
+    columna: int
+    grupo: int
+    vertices: list[list[int]]
 
 
 # Leemos una imagen y comprueba que sea válida.
@@ -32,65 +43,143 @@ def ajustar_imagen(imagen: np.ndarray, filas: int, columnas: int) -> np.ndarray:
     return imagen[:alto_util, :ancho_util].copy()
 
 
-# Dividimos la imagen de izquierda a derecha y de arriba hacia abajo.
-def dividir_imagen(imagen: np.ndarray, filas: int, columnas: int) -> list[np.ndarray]:
+# Define las figuras que ocupan completamente cada celda.
+def obtener_figuras(ancho: int, alto: int, lados: int) -> list[list[list[int]]]:
+    derecha = ancho - 1
+    abajo = alto - 1
+
+    if lados == 3:
+        return [
+            [[0, 0], [derecha, 0], [0, abajo]],
+            [[derecha, 0], [derecha, abajo], [0, abajo]],
+        ]
+
+    if lados == 4:
+        return [[[0, 0], [derecha, 0], [derecha, abajo], [0, abajo]]]
+
+    if lados == 6:
+        centro = derecha // 2
+        margen = max(1, derecha // 6)
+        tercio = abajo // 3
+        dos_tercios = 2 * abajo // 3
+        return [
+            [
+                [0, 0],
+                [centro, 0],
+                [centro + margen, tercio],
+                [centro - margen, dos_tercios],
+                [centro, abajo],
+                [0, abajo],
+            ],
+            [
+                [centro, 0],
+                [derecha, 0],
+                [derecha, abajo],
+                [centro, abajo],
+                [centro - margen, dos_tercios],
+                [centro + margen, tercio],
+            ],
+        ]
+
+    raise ValueError("Solo se permiten figuras de 3, 4 o 6 lados")
+
+
+# Aplicamos transparencia fuera de los vértices de la pieza.
+def recortar_figura(imagen: np.ndarray, vertices: list[list[int]]) -> np.ndarray:
+    mascara = np.zeros(imagen.shape[:2], dtype=np.uint8)
+    puntos = np.array(vertices, dtype=np.int32)
+    cv2.fillPoly(mascara, [puntos], 255)
+    pieza = cv2.cvtColor(imagen, cv2.COLOR_BGR2BGRA)
+    pieza[:, :, 3] = mascara
+    return pieza
+
+
+# Dividimos cada celda en una o dos figuras según sus lados.
+def dividir_imagen(
+    imagen: np.ndarray, filas: int, columnas: int, lados: int
+) -> list[Pieza]:
     alto, ancho = imagen.shape[:2]
-    alto_pieza = alto // filas
-    ancho_pieza = ancho // columnas
+    alto_celda = alto // filas
+    ancho_celda = ancho // columnas
+    figuras = obtener_figuras(ancho_celda, alto_celda, lados)
     piezas = []
 
     for fila in range(filas):
         for columna in range(columnas):
-            y = fila * alto_pieza
-            x = columna * ancho_pieza
-            piezas.append(imagen[y : y + alto_pieza, x : x + ancho_pieza].copy())
+            y = fila * alto_celda
+            x = columna * ancho_celda
+            celda = imagen[y : y + alto_celda, x : x + ancho_celda]
+
+            for grupo, vertices in enumerate(figuras):
+                piezas.append(
+                    Pieza(
+                        id=len(piezas),
+                        imagen=recortar_figura(celda, vertices),
+                        fila=fila,
+                        columna=columna,
+                        grupo=grupo,
+                        vertices=vertices,
+                    )
+                )
     return piezas
 
 
-# Creamos una mezcla repetible y diferente del orden original.
-def mezclar_indices(cantidad: int, semilla: int) -> list[int]:
-    original = list(range(cantidad))
-    mezcla = original.copy()
+# Mezclamos por separado las piezas que tienen la misma orientación.
+def mezclar_piezas(piezas: list[Pieza], semilla: int) -> list[int]:
+    orden = list(range(len(piezas)))
     generador = random.Random(semilla)
+    grupos = sorted({pieza.grupo for pieza in piezas})
 
-    while mezcla == original:
-        generador.shuffle(mezcla)
-    return mezcla
+    for grupo in grupos:
+        posiciones = [pieza.id for pieza in piezas if pieza.grupo == grupo]
+        mezcla = posiciones.copy()
+        while mezcla == posiciones:
+            generador.shuffle(mezcla)
+        for posicion, pieza_id in zip(posiciones, mezcla):
+            orden[posicion] = pieza_id
+    return orden
 
 
-# Colocamos las piezas siguiendo el nuevo orden.
+# Copiamos una pieza transparente sobre el lienzo.
+def colocar_pieza(lienzo: np.ndarray, pieza: np.ndarray, x: int, y: int) -> None:
+    alto, ancho = pieza.shape[:2]
+    mascara = pieza[:, :, 3] > 0
+    zona = lienzo[y : y + alto, x : x + ancho]
+    zona[mascara] = pieza[:, :, :3][mascara]
+
+
+# Colocamos las piezas en las posiciones mezcladas.
 def renderizar(
-    piezas: list[np.ndarray], orden: list[int], filas: int, columnas: int
+    piezas: list[Pieza], orden: list[int], filas: int, columnas: int
 ) -> np.ndarray:
-    alto_pieza, ancho_pieza = piezas[0].shape[:2]
+    alto_celda, ancho_celda = piezas[0].imagen.shape[:2]
     lienzo = np.zeros(
-        (filas * alto_pieza, columnas * ancho_pieza, 3), dtype=np.uint8
+        (filas * alto_celda, columnas * ancho_celda, 3), dtype=np.uint8
     )
 
-    for posicion, indice in enumerate(orden):
-        fila, columna = divmod(posicion, columnas)
-        y = fila * alto_pieza
-        x = columna * ancho_pieza
-        lienzo[y : y + alto_pieza, x : x + ancho_pieza] = piezas[indice]
+    for posicion, pieza_id in enumerate(orden):
+        destino = piezas[posicion]
+        pieza = piezas[pieza_id]
+        y = destino.fila * alto_celda
+        x = destino.columna * ancho_celda
+        colocar_pieza(lienzo, pieza.imagen, x, y)
     return lienzo
 
 
-# Dibujamos líneas rojas para distinguir las piezas.
-def agregar_bordes(imagen: np.ndarray, filas: int, columnas: int) -> np.ndarray:
+# Dibujamos el contorno de cada figura.
+def agregar_bordes(imagen: np.ndarray, piezas: list[Pieza]) -> np.ndarray:
     resultado = imagen.copy()
-    alto, ancho = resultado.shape[:2]
+    alto_celda, ancho_celda = piezas[0].imagen.shape[:2]
 
-    for fila in range(1, filas):
-        y = fila * alto // filas
-        cv2.line(resultado, (0, y), (ancho - 1, y), (0, 0, 255), 2)
-
-    for columna in range(1, columnas):
-        x = columna * ancho // columnas
-        cv2.line(resultado, (x, 0), (x, alto - 1), (0, 0, 255), 2)
+    for pieza in piezas:
+        puntos = np.array(pieza.vertices, dtype=np.int32)
+        puntos[:, 0] += pieza.columna * ancho_celda
+        puntos[:, 1] += pieza.fila * alto_celda
+        cv2.polylines(resultado, [puntos], True, (0, 0, 255), 2)
     return resultado
 
 
-# Guardamos una imagen y avisa si OpenCV no puede escribirla.
+# Guarda una imagen y avisa si OpenCV no puede escribirla.
 def guardar_png(ruta: Path, imagen: np.ndarray) -> None:
     if not cv2.imwrite(str(ruta), imagen):
         raise OSError(f"No se pudo guardar: {ruta}")
@@ -101,31 +190,35 @@ def generar_rompecabezas(
     ruta_imagen: Path,
     filas: int,
     columnas: int,
+    lados: int,
     semilla: int,
     directorio_salida: Path,
 ) -> dict[str, Any]:
     original = cargar_imagen(ruta_imagen)
     procesada = ajustar_imagen(original, filas, columnas)
-    piezas = dividir_imagen(procesada, filas, columnas)
-    orden = mezclar_indices(len(piezas), semilla)
+    piezas = dividir_imagen(procesada, filas, columnas, lados)
+    orden = mezclar_piezas(piezas, semilla)
 
     carpeta_piezas = directorio_salida / "pieces"
     carpeta_piezas.mkdir(parents=True, exist_ok=True)
+    for archivo_anterior in carpeta_piezas.glob("piece_*.png"):
+        archivo_anterior.unlink()
 
     guardar_png(directorio_salida / "original.png", procesada)
-    for indice, pieza in enumerate(piezas):
-        guardar_png(carpeta_piezas / f"piece_{indice:03d}.png", pieza)
+    for pieza in piezas:
+        guardar_png(carpeta_piezas / f"piece_{pieza.id:03d}.png", pieza.imagen)
 
     rompecabezas = renderizar(piezas, orden, filas, columnas)
     guardar_png(directorio_salida / "shuffled_puzzle.png", rompecabezas)
     guardar_png(
         directorio_salida / "shuffled_puzzle_debug.png",
-        agregar_bordes(rompecabezas, filas, columnas),
+        agregar_bordes(rompecabezas, piezas),
     )
 
     alto_original, ancho_original = original.shape[:2]
     alto, ancho = procesada.shape[:2]
-    posiciones = {pieza: posicion for posicion, pieza in enumerate(orden)}
+    posiciones = {pieza_id: posicion for posicion, pieza_id in enumerate(orden)}
+    nombres = {3: "triangulo", 4: "cuadrilatero", 6: "hexagono"}
     metadata = {
         "imagen_origen": ruta_imagen.name,
         "ancho_original": ancho_original,
@@ -134,20 +227,22 @@ def generar_rompecabezas(
         "alto_procesado": alto,
         "filas": filas,
         "columnas": columnas,
+        "lados": lados,
+        "tipo_pieza": nombres[lados],
         "cantidad_piezas": len(piezas),
-        "ancho_pieza": ancho // columnas,
-        "alto_pieza": alto // filas,
         "semilla": semilla,
         "orden_mezclado": orden,
         "piezas": [
             {
-                "id": indice,
-                "archivo": f"piece_{indice:03d}.png",
-                "fila_original": indice // columnas,
-                "columna_original": indice % columnas,
-                "posicion_mezclada": posiciones[indice],
+                "id": pieza.id,
+                "archivo": f"piece_{pieza.id:03d}.png",
+                "fila_original": pieza.fila,
+                "columna_original": pieza.columna,
+                "grupo_orientacion": pieza.grupo,
+                "vertices": pieza.vertices,
+                "posicion_mezclada": posiciones[pieza.id],
             }
-            for indice in range(len(piezas))
+            for pieza in piezas
         ],
     }
     (directorio_salida / "metadata.json").write_text(
