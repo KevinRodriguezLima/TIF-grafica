@@ -9,6 +9,11 @@ output/*
 data/generated/*
 !data/generated/.gitkeep
 
+data/classification/*
+!data/classification/.gitkeep
+data/evaluation/*
+!data/evaluation/.gitkeep
+
 input/pieces/*
 !input/pieces/.gitkeep
 

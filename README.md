@@ -1,14 +1,14 @@
-﻿# TIF GrÃ¡fica: rompecabezas y reconocimiento
+# TIF Gráfica: rompecabezas y reconocimiento
 
-Proyecto acadÃ©mico que recibe una imagen, la divide en piezas, las desordena y, en fases posteriores, reconstruirÃ¡ la imagen y reconocerÃ¡ su contenido.
+Proyecto académico que recibe una imagen, la divide en piezas, las desordena y, en fases posteriores, reconstruirá la imagen y reconocerá su contenido.
 
 ## Flujo
 
-`imagen â†’ normalizaciÃ³n â†’ piezas â†’ mezcla â†’ reconstrucciÃ³n futura â†’ clasificaciÃ³n futura`
+`imagen → normalización → piezas → mezcla → reconstrucción futura → clasificación futura`
 
-La fase actual trabaja Ãºnicamente en cÃ³mo crear las piezas del rompecabezas. El primer prototipo usa una cuadrÃ­cula regular porque permite validar el recorte y la mezcla antes de experimentar con Voronoi.
+La fase actual trabaja únicamente en cómo crear las piezas del rompecabezas. El primer prototipo usa una cuadrícula regular porque permite validar el recorte y la mezcla antes de experimentar con Voronoi.
 
-## InstalaciÃ³n
+## Instalación
 
 ```bash
 python -m venv .venv
@@ -29,15 +29,37 @@ La salida contiene la imagen procesada, las piezas PNG, dos versiones del rompec
 
 Formas disponibles:
 
-- `--sides 3`: dos triÃ¡ngulos por cada celda.
-- `--sides 4`: un cuadrilÃ¡tero por cada celda.
-- `--sides 6`: dos hexÃ¡gonos irregulares por cada celda.
+- `--sides 3`: dos triángulos por cada celda.
+- `--sides 4`: un cuadrilátero por cada celda.
+- `--sides 6`: dos hexágonos irregulares por cada celda.
 
-Los triÃ¡ngulos y hexÃ¡gonos usan transparencia para conservar sus lados rectos sin perder partes de la imagen.
+Los triángulos y hexágonos usan transparencia para conservar sus lados rectos sin perder partes de la imagen.
 
 ## Estado breve
 
-- Generador de piezas de 3, 4 y 6 lados: disponible para revisiÃ³n.
-- Voronoi: alternativa pendiente de evaluar, no implementada todavÃ­a.
-- Solver automÃ¡tico, TensorFlow e interfaz: fuera del trabajo actual.
+- Generador de piezas de 3, 4 y 6 lados: disponible para revisión.
+- Voronoi: alternativa pendiente de evaluar, no implementada todavía.
+- Solver automático, TensorFlow e interfaz: fuera del trabajo actual.
 
+## Datos para clasificación
+
+El clasificador final utilizará cuatro clases: `animales`, `frutas`, `objetos` y
+`personas`. Antes de entrenar, el dataset debe tener esta estructura:
+
+```text
+data/classification/
+├── train/{animales,frutas,objetos,personas}/
+├── validation/{animales,frutas,objetos,personas}/
+└── test/{animales,frutas,objetos,personas}/
+```
+
+Para validar las carpetas y contar las imágenes:
+
+```bash
+python -m src.content_classification.dataset \
+  --dataset-dir data/classification \
+  --output metadata/classification_dataset.json
+```
+
+Las imágenes de referencia entregadas para evaluar el rompecabezas no deben
+mezclarse con el dataset de entrenamiento.
