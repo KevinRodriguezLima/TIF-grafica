@@ -1,14 +1,14 @@
-﻿# TIF GrÃ¡fica: rompecabezas y reconocimiento
+# TIF Grafica: rompecabezas y reconocimiento
 
-Proyecto acadÃ©mico que recibe una imagen, la divide en piezas, las desordena y, en fases posteriores, reconstruirÃ¡ la imagen y reconocerÃ¡ su contenido.
+Proyecto academico que recibe una imagen, la divide en piezas, las desordena y, en fases posteriores, reconstruira la imagen y reconocera su contenido.
 
 ## Flujo
 
-`imagen â†’ normalizaciÃ³n â†’ piezas â†’ mezcla â†’ reconstrucciÃ³n futura â†’ clasificaciÃ³n futura`
+`imagen -> normalizacion -> piezas -> mezcla -> reconstruccion futura -> clasificacion futura`
 
-La fase actual trabaja Ãºnicamente en cÃ³mo crear las piezas del rompecabezas. El primer prototipo usa una cuadrÃ­cula regular porque permite validar el recorte y la mezcla antes de experimentar con Voronoi.
+La fase actual trabaja en crear piezas de rompecabezas desde imagenes locales o descargadas de internet. Soporta grillas regulares y poligonos irregulares con Voronoi.
 
-## InstalaciÃ³n
+## Instalacion
 
 ```bash
 python -m venv .venv
@@ -16,7 +16,14 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Uso
+En Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+## Generar desde una imagen local
 
 ```bash
 python -m src.data_generation.generate_dataset generate \
@@ -25,19 +32,49 @@ python -m src.data_generation.generate_dataset generate \
   --output data/generated/test_001
 ```
 
-La salida contiene la imagen procesada, las piezas PNG, dos versiones del rompecabezas desordenado y sus metadatos JSON.
+La salida contiene `original.png`, las piezas PNG, `shuffled_puzzle.png`, `shuffled_puzzle_debug.png` y `metadata.json`.
 
 Formas disponibles:
 
-- `--sides 3`: dos triÃ¡ngulos por cada celda.
-- `--sides 4`: un cuadrilÃ¡tero por cada celda.
-- `--sides 6`: dos hexÃ¡gonos irregulares por cada celda.
+- `--sides 0`: poligonos irregulares con Voronoi.
+- `--sides 3`: dos triangulos por cada celda.
+- `--sides 4`: un cuadrilatero por cada celda.
+- `--sides 6`: dos hexagonos irregulares por cada celda.
 
-Los triÃ¡ngulos y hexÃ¡gonos usan transparencia para conservar sus lados rectos sin perder partes de la imagen.
+## Descargar imagenes abiertas
+
+Busca imagenes en Openverse y guarda un manifiesto con fuente, autor y licencia.
+
+```bash
+python -m src.data_generation.generate_dataset download-images \
+  --query "landscape photo" \
+  --limit 3 \
+  --output data/raw/openverse_landscape
+```
+
+## Generar data en lote
+
+```bash
+python -m src.data_generation.generate_dataset generate-batch \
+  --input-dir data/raw/openverse_landscape \
+  --rows 3 --cols 3 --sides 0 --seed 100 \
+  --output data/generated/openverse_landscape
+```
+
+Tambien se puede descargar y generar en una sola corrida:
+
+```bash
+python -m src.data_generation.generate_dataset generate-web \
+  --query "landscape photo" \
+  --limit 3 \
+  --raw-output data/raw/openverse_landscape \
+  --rows 3 --cols 3 --sides 0 --seed 100 \
+  --output data/generated/openverse_landscape
+```
 
 ## Estado breve
 
-- Generador de piezas de 3, 4 y 6 lados: disponible para revisiÃ³n.
-- Voronoi: alternativa pendiente de evaluar, no implementada todavÃ­a.
-- Solver automÃ¡tico, TensorFlow e interfaz: fuera del trabajo actual.
-
+- Generador de piezas de 3, 4 y 6 lados: disponible.
+- Voronoi: implementado con piezas irregulares, preview mezclado y contornos debug.
+- Descarga web: implementada con Openverse para imagenes con licencia abierta.
+- Solver automatico, TensorFlow e interfaz: fuera del trabajo actual.

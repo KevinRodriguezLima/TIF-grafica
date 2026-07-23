@@ -1,0 +1,15 @@
+{
+  "query": "architecture photo",
+  "cantidad": 1,
+  "imagenes": [
+    {
+      "archivo": "001_-_plastic_bag_architecture_-_photo_20_-_jpg.jpg",
+      "titulo": "陳志昇 - Plastic (Bag) Architecture - Photo 20 - 製作側拍.jpg",
+      "autor": "準建築人手札網站 Forgemind ArchiMedia",
+      "licencia": "by",
+      "licencia_url": "https://creativecommons.org/licenses/by/2.0/",
+      "fuente": "https://www.flickr.com/photos/44343967@N00/8252000578",
+      "url_descarga": "https://live.staticflickr.com/8065/8252000578_a4bdbd1ff4_b.jpg"
+    }
+  ]
+}
