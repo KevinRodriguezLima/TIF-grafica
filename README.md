@@ -10,10 +10,13 @@ La fase actual trabaja únicamente en cómo crear las piezas del rompecabezas. E
 
 ## Instalación
 
+TensorFlow requiere Python 3.10 a 3.13. Para este proyecto se recomienda Python
+3.13:
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+python3.13 -m venv .venv-tf
+source .venv-tf/bin/activate
+pip install -r requirements-dev.txt
 ```
 
 ## Uso
