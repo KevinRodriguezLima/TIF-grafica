@@ -66,3 +66,15 @@ python -m src.content_classification.dataset \
 
 Las imágenes de referencia entregadas para evaluar el rompecabezas no deben
 mezclarse con el dataset de entrenamiento.
+
+## Entrenamiento
+
+```bash
+python -m src.content_classification.trainer \
+  --dataset-dir data/classification \
+  --output-dir models/content_classification \
+  --epochs 10
+```
+
+El entrenamiento guarda el modelo, las etiquetas y un JSON con las métricas en
+la carpeta indicada por `--output-dir`.
