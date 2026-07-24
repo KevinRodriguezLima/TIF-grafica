@@ -24,15 +24,30 @@ def _nombre_seguro(texto: str) -> str:
 
 
 def buscar_openverse(query: str, limite: int) -> list[dict[str, Any]]:
-    parametros = {
-        "q": query,
-        "page_size": min(max(limite * 3, 1), 50),
-        "extension": "jpg,png,jpeg",
-        "license_type": "commercial,modification",
-    }
-    url = f"{OPENVERSE_ENDPOINT}?{urllib.parse.urlencode(parametros)}"
-    datos = json.loads(_abrir_url(url).decode("utf-8"))
-    return datos.get("results", [])
+    resultados = []
+    pagina = 1
+    cantidad_buscada = max(limite * 2, limite)
+
+    while len(resultados) < cantidad_buscada:
+        cantidad_pagina = min(20, cantidad_buscada - len(resultados))
+        parametros = {
+            "q": query,
+            "page": pagina,
+            "page_size": cantidad_pagina,
+            "extension": "jpg,png,jpeg",
+            "license_type": "commercial,modification",
+        }
+        url = f"{OPENVERSE_ENDPOINT}?{urllib.parse.urlencode(parametros)}"
+        datos = json.loads(_abrir_url(url).decode("utf-8"))
+        imagenes = datos.get("results", [])
+        if not imagenes:
+            break
+        resultados.extend(imagenes)
+        if not datos.get("next"):
+            break
+        pagina += 1
+
+    return resultados
 
 
 def _extension_desde_url(url: str) -> str:
