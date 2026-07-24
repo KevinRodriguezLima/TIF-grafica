@@ -63,3 +63,14 @@ def test_classifies_with_keras_model(tmp_path, monkeypatch):
 
     assert result["accepted_prediction"] == "animales"
     assert result["model"] == "mobilenetv2_transfer_learning"
+
+
+def test_classifier_cli_requires_image_and_model(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["classifier"])
+
+    try:
+        classifier.main()
+    except SystemExit as error:
+        assert error.code == 2
+    else:
+        raise AssertionError("Debía exigir imagen y modelo")

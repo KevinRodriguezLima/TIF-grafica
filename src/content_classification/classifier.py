@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 from typing import Any
@@ -142,3 +143,36 @@ def classify_reconstructed_image(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return result
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--image", type=Path, required=True)
+    parser.add_argument("--model", type=Path, required=True)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("results/classification_result.json"),
+    )
+    parser.add_argument("--confidence-threshold", type=float, default=0.40)
+    parser.add_argument("--device", default="cpu")
+    args = parser.parse_args()
+
+    try:
+        result = classify_reconstructed_image(
+            args.image,
+            args.output,
+            confidence_threshold=args.confidence_threshold,
+            model_path=args.model,
+            device=args.device,
+        )
+    except (FileNotFoundError, ValueError, OSError, ImportError) as error:
+        print(f"Error: {error}")
+        return 1
+
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
