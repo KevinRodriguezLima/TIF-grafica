@@ -118,8 +118,28 @@ python -m src.content_classification.coco_dataset \
   --images-per-class 400
 ```
 
-El comando asigna cada imagen a su clase dominante y crea las particiones
-`train`, `validation` y `test` con proporciones 70 %, 15 % y 15 %.
+El comando exige que la clase dominante represente al menos 80 % del área
+anotada y crea las particiones `train`, `validation` y `test` con proporciones
+70 %, 15 % y 15 %.
+
+## Imágenes adicionales desde Openverse
+
+Para agregar variedad se pueden recopilar imágenes con licencia abierta desde
+Openverse:
+
+```bash
+python -m src.content_classification.openverse_collector \
+  --output-dir data/sources/openverse \
+  --images-per-query 50
+```
+
+El recolector realiza diez búsquedas para cada clase. Con 50 imágenes por
+búsqueda intenta obtener hasta 500 imágenes adicionales por clase. Las guarda
+separadas del dataset final y conserva el autor, la licencia y la dirección de
+origen en `openverse_manifest.json`.
+
+Estas imágenes son candidatos obtenidos mediante búsquedas de texto. Deben
+revisarse antes de incorporarlas al entrenamiento.
 
 ## Entrenamiento
 

@@ -16,6 +16,8 @@ data/evaluation/*
 !data/evaluation/.gitkeep
 data/coco/*
 !data/coco/.gitkeep
+data/sources/*
+!data/sources/.gitkeep
 
 input/pieces/*
 !input/pieces/.gitkeep

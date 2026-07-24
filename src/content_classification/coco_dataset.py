@@ -192,7 +192,7 @@ def build_parser():
         default=Path("data/classification"),
     )
     parser.add_argument("--images-per-class", type=int, default=400)
-    parser.add_argument("--min-dominance", type=float, default=0.60)
+    parser.add_argument("--min-dominance", type=float, default=0.80)
     parser.add_argument("--min-image-area", type=float, default=0.08)
     parser.add_argument("--seed", type=int, default=42)
     return parser
