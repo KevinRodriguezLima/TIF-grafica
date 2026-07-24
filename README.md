@@ -179,3 +179,18 @@ python -m src.content_classification.trainer \
 
 El entrenamiento guarda el modelo, las etiquetas y un JSON con las métricas en
 la carpeta indicada por `--output-dir`.
+
+## Ejecutar el pipeline completo
+
+```bash
+python -m src.main run-all \
+  --pieces-dir input/pieces/imagen1 \
+  --processed-dir processed/imagen1 \
+  --metadata-dir metadata/imagen1 \
+  --results-dir results/imagen1 \
+  --puzzle-id imagen1 \
+  --content-classifier-model models/content_classification/mobilenetv2_classifier.keras
+```
+
+El modelo MobileNetV2 necesita que `labels.json` se encuentre en la misma
+carpeta que el archivo `.keras`.

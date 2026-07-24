@@ -47,7 +47,7 @@ def _class_scores(image: np.ndarray) -> dict[str, float]:
     return {key: value / total for key, value in scores.items()}
 
 
-def _model_predictions(image: np.ndarray, model_path: Path, device: str) -> tuple[list[dict[str, float]], str]:
+def _pytorch_predictions(image: np.ndarray, model_path: Path, device: str) -> tuple[list[dict[str, float]], str]:
     model, class_names, image_size = load_content_classifier(model_path, device=device)
     transform = build_content_transform(image_size)
     rgb = _as_rgb_on_background(image)
@@ -60,6 +60,37 @@ def _model_predictions(image: np.ndarray, model_path: Path, device: str) -> tupl
     ]
     predictions.sort(key=lambda item: item["confidence"], reverse=True)
     return predictions, "content_classifier_resnet18_transfer"
+
+
+def _keras_predictions(image, model_path):
+    import tensorflow as tf
+
+    labels_path = model_path.parent / "labels.json"
+    if not labels_path.is_file():
+        raise FileNotFoundError(f"No se encontraron las etiquetas: {labels_path}")
+
+    class_names = json.loads(labels_path.read_text(encoding="utf-8"))
+    model = tf.keras.models.load_model(model_path)
+    rgb = _as_rgb_on_background(image)
+    resized = cv2.resize(rgb, (224, 224))
+    batch = np.expand_dims(resized.astype(np.float32), axis=0)
+    batch = tf.keras.applications.mobilenet_v2.preprocess_input(batch)
+    probabilities = model.predict(batch, verbose=0)[0]
+    predictions = [
+        {
+            "class": class_names[index],
+            "confidence": float(probabilities[index]),
+        }
+        for index in range(len(class_names))
+    ]
+    predictions.sort(key=lambda item: item["confidence"], reverse=True)
+    return predictions, "mobilenetv2_transfer_learning"
+
+
+def _model_predictions(image, model_path, device):
+    if model_path.suffix.lower() == ".keras":
+        return _keras_predictions(image, model_path)
+    return _pytorch_predictions(image, model_path, device)
 
 
 def _try_model_predictions(
