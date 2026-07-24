@@ -8,6 +8,8 @@ import src.content_classification.classifier as classifier
 
 class FakeModel:
     def predict(self, batch, verbose=0):
+        assert batch.min() >= 0
+        assert batch.max() <= 255
         return np.array([[0.1, 0.2, 0.6, 0.1]])
 
 

@@ -74,7 +74,6 @@ def _keras_predictions(image, model_path):
     rgb = _as_rgb_on_background(image)
     resized = cv2.resize(rgb, (224, 224))
     batch = np.expand_dims(resized.astype(np.float32), axis=0)
-    batch = tf.keras.applications.mobilenet_v2.preprocess_input(batch)
     probabilities = model.predict(batch, verbose=0)[0]
     predictions = [
         {
