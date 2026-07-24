@@ -141,6 +141,22 @@ origen en `openverse_manifest.json`.
 Estas imágenes son candidatos obtenidos mediante búsquedas de texto. Deben
 revisarse antes de incorporarlas al entrenamiento.
 
+## Unir fuentes y eliminar duplicados
+
+Después de revisar las imágenes de Openverse, se pueden unir con COCO:
+
+```bash
+python -m src.content_classification.dataset_merger \
+  --source data/classification \
+  --source data/sources/openverse \
+  --output-dir data/classification_merged \
+  --images-per-class 500
+```
+
+El comando valida las imágenes, elimina archivos iguales o visualmente casi
+iguales y después crea las particiones `train`, `validation` y `test`. El
+dataset original no se modifica.
+
 ## Entrenamiento
 
 ```bash

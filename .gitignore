@@ -12,6 +12,8 @@ data/generated/*
 
 data/classification/*
 !data/classification/.gitkeep
+data/classification_merged/*
+!data/classification_merged/.gitkeep
 data/evaluation/*
 !data/evaluation/.gitkeep
 data/coco/*
