@@ -1,0 +1,33 @@
+{
+  "query": "landscape photo",
+  "cantidad": 3,
+  "imagenes": [
+    {
+      "archivo": "001_haldane_martin_zulu_mama_landscape_-_photo_jan_verboom.jpg",
+      "titulo": "Haldane Martin & Zulu Mama (landscape)- photo Jan Verboom",
+      "autor": "HALDANE MARTIN",
+      "licencia": "by",
+      "licencia_url": "https://creativecommons.org/licenses/by/2.0/",
+      "fuente": "https://www.flickr.com/photos/52634191@N08/4846774997",
+      "url_descarga": "https://live.staticflickr.com/4106/4846774997_338ff63232_b.jpg"
+    },
+    {
+      "archivo": "002_landscape_photo_gotland_sweden.jpg",
+      "titulo": "Landscape photo, Gotland, Sweden",
+      "autor": "Ben124.",
+      "licencia": "by",
+      "licencia_url": "https://creativecommons.org/licenses/by/2.0/",
+      "fuente": "https://www.flickr.com/photos/9298216@N08/6236478349",
+      "url_descarga": "https://live.staticflickr.com/6215/6236478349_2a0c7aeab2_b.jpg"
+    },
+    {
+      "archivo": "003_catherine_mosbach_-_louvre_lens_museum_landscape_-_photo_01_.jpg",
+      "titulo": "Catherine Mosbach - Louvre Lens Museum landscape - Photo 01.jpg",
+      "autor": "準建築人手札網站 Forgemind ArchiMedia",
+      "licencia": "by",
+      "licencia_url": "https://creativecommons.org/licenses/by/2.0/",
+      "fuente": "https://www.flickr.com/photos/44343967@N00/10781109786",
+      "url_descarga": "https://live.staticflickr.com/7353/10781109786_2a1b449087_b.jpg"
+    }
+  ]
+}

@@ -1,12 +1,14 @@
 # TIF Gráfica: rompecabezas y reconocimiento
 
-Proyecto académico que recibe una imagen, la divide en piezas, las desordena y, en fases posteriores, reconstruirá la imagen y reconocerá su contenido.
+Proyecto académico que recibe una imagen, la divide en piezas, las desordena,
+reconstruye la imagen y reconoce su contenido.
 
 ## Flujo
 
-`imagen → normalización → piezas → mezcla → reconstrucción futura → clasificación futura`
+`imagen → normalización → piezas → mezcla → reconstrucción → clasificación`
 
-La fase actual trabaja únicamente en cómo crear las piezas del rompecabezas. El primer prototipo usa una cuadrícula regular porque permite validar el recorte y la mezcla antes de experimentar con Voronoi.
+El proyecto soporta cuadrículas regulares, polígonos irregulares con Voronoi,
+reconstrucción automática y clasificación mediante transfer learning.
 
 ## Instalación
 
@@ -19,7 +21,14 @@ source .venv-tf/bin/activate
 pip install -r requirements-dev.txt
 ```
 
-## Uso
+En Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+## Generar desde una imagen local
 
 ```bash
 python -m src.data_generation.generate_dataset generate \
@@ -28,21 +37,43 @@ python -m src.data_generation.generate_dataset generate \
   --output data/generated/test_001
 ```
 
-La salida contiene la imagen procesada, las piezas PNG, dos versiones del rompecabezas desordenado y sus metadatos JSON.
+La salida contiene `original.png`, las piezas PNG, `shuffled_puzzle.png`, `shuffled_puzzle_debug.png` y `metadata.json`.
 
 Formas disponibles:
 
+- `--sides 0`: polígonos irregulares con Voronoi.
 - `--sides 3`: dos triángulos por cada celda.
 - `--sides 4`: un cuadrilátero por cada celda.
 - `--sides 6`: dos hexágonos irregulares por cada celda.
 
 Los triángulos y hexágonos usan transparencia para conservar sus lados rectos sin perder partes de la imagen.
 
+## Descargar imágenes abiertas
+
+```bash
+python -m src.data_generation.generate_dataset download-images \
+  --query "landscape photo" \
+  --limit 3 \
+  --output data/raw/openverse_landscape
+```
+
+## Generar datos en lote
+
+```bash
+python -m src.data_generation.generate_dataset generate-batch \
+  --input-dir data/raw/openverse_landscape \
+  --rows 3 --cols 3 --sides 0 --seed 100 \
+  --output data/generated/openverse_landscape
+```
+
 ## Estado breve
 
-- Generador de piezas de 3, 4 y 6 lados: disponible para revisión.
-- Voronoi: alternativa pendiente de evaluar, no implementada todavía.
-- Solver automático, TensorFlow e interfaz: fuera del trabajo actual.
+- Generador de piezas regulares e irregulares: disponible.
+- Voronoi: implementado.
+- Solver automático: incorporado desde `origin/main`.
+- Clasificación MobileNetV2: implementada y probada.
+- Clasificación ResNet18: alternativa incorporada.
+- Interfaz y prueba integral: pendientes de verificación.
 
 ## Datos para clasificación
 
