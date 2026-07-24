@@ -80,3 +80,32 @@ def test_collect_openverse_continues_after_error(tmp_path, monkeypatch):
 
     assert manifest["cantidad"] == 0
     assert len(manifest["errores"]) == 40
+
+
+def test_collects_one_class_and_reuses_downloads(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_download(query, limit, output_dir):
+        calls.append(query)
+        output_dir.mkdir(parents=True)
+        image_path = output_dir / "image.jpg"
+        image_path.write_bytes(b"image")
+        images = [{"archivo": image_path.name}]
+        (output_dir / "openverse_manifest.json").write_text(
+            json.dumps({"imagenes": images}),
+            encoding="utf-8",
+        )
+        return images
+
+    monkeypatch.setattr(
+        collector,
+        "descargar_imagenes_openverse",
+        fake_download,
+    )
+
+    first = collector.collect_openverse(tmp_path, 1, "frutas")
+    second = collector.collect_openverse(tmp_path, 1, "frutas")
+
+    assert first["cantidad_por_clase"] == {"frutas": 10}
+    assert second["cantidad_por_clase"] == {"frutas": 10}
+    assert len(calls) == 10

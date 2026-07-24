@@ -138,6 +138,17 @@ búsqueda intenta obtener hasta 500 imágenes adicionales por clase. Las guarda
 separadas del dataset final y conserva el autor, la licencia y la dirección de
 origen en `openverse_manifest.json`.
 
+Para descargar una clase a la vez y poder reanudar el proceso:
+
+```bash
+python -m src.content_classification.openverse_collector \
+  --output-dir data/sources/openverse \
+  --images-per-query 50 \
+  --class-name animales
+```
+
+Las clases disponibles son `animales`, `frutas`, `objetos` y `personas`.
+
 Estas imágenes son candidatos obtenidos mediante búsquedas de texto. Deben
 revisarse antes de incorporarlas al entrenamiento.
 

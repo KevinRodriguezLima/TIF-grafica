@@ -64,48 +64,24 @@ def safe_name(text):
     return name
 
 
-def collect_openverse(output_dir, images_per_query):
-    if images_per_query < 1:
-        raise ValueError("La cantidad de imágenes debe ser mayor que cero")
+def load_existing(query_dir, images_per_query):
+    manifest_path = query_dir / "openverse_manifest.json"
+    if not manifest_path.is_file():
+        return None
 
-    output_dir = Path(output_dir)
-    records = []
-    errors = []
-    counts = {}
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    images = manifest.get("imagenes", [])
+    valid_images = [
+        image
+        for image in images
+        if (query_dir / image["archivo"]).is_file()
+    ]
+    if len(valid_images) < images_per_query:
+        return None
+    return valid_images[:images_per_query]
 
-    for class_name, queries in QUERIES.items():
-        counts[class_name] = 0
-        for query in queries:
-            query_dir = output_dir / class_name / safe_name(query)
-            try:
-                downloaded = descargar_imagenes_openverse(
-                    query,
-                    images_per_query,
-                    query_dir,
-                )
-            except (OSError, urllib.error.URLError, TimeoutError) as error:
-                errors.append(
-                    {
-                        "clase": class_name,
-                        "busqueda": query,
-                        "error": str(error),
-                    }
-                )
-                continue
 
-            for image in downloaded:
-                record = dict(image)
-                record["clase"] = class_name
-                record["busqueda"] = query
-                record["archivo"] = str(query_dir / image["archivo"])
-                records.append(record)
-                counts[class_name] += 1
-
-            print(
-                f"{class_name} - {query}: "
-                f"{len(downloaded)} imágenes"
-            )
-
+def save_manifest(output_dir, images_per_query, records, errors, counts):
     manifest = {
         "fuente": "Openverse",
         "cantidad": len(records),
@@ -123,6 +99,97 @@ def collect_openverse(output_dir, images_per_query):
     return manifest
 
 
+def collect_openverse(output_dir, images_per_query, class_name=None):
+    if images_per_query < 1:
+        raise ValueError("La cantidad de imágenes debe ser mayor que cero")
+    if class_name is not None and class_name not in QUERIES:
+        raise ValueError(f"Clase no válida: {class_name}")
+
+    output_dir = Path(output_dir)
+    records = []
+    errors = []
+    counts = {}
+    classes = [class_name] if class_name else QUERIES
+    general_manifest = output_dir / "openverse_manifest.json"
+
+    if class_name and general_manifest.is_file():
+        previous = json.loads(general_manifest.read_text(encoding="utf-8"))
+        records = [
+            image
+            for image in previous.get("imagenes", [])
+            if image.get("clase") != class_name
+        ]
+        errors = [
+            error
+            for error in previous.get("errores", [])
+            if error.get("clase") != class_name
+        ]
+        counts = {
+            name: count
+            for name, count in previous.get("cantidad_por_clase", {}).items()
+            if name != class_name
+        }
+
+    for current_class in classes:
+        counts[current_class] = 0
+        queries = QUERIES[current_class]
+        for query in queries:
+            query_dir = output_dir / current_class / safe_name(query)
+            downloaded = load_existing(query_dir, images_per_query)
+
+            if downloaded is None:
+                try:
+                    downloaded = descargar_imagenes_openverse(
+                        query,
+                        images_per_query,
+                        query_dir,
+                    )
+                except (OSError, urllib.error.URLError, TimeoutError) as error:
+                    errors.append(
+                        {
+                            "clase": current_class,
+                            "busqueda": query,
+                            "error": str(error),
+                        }
+                    )
+                    save_manifest(
+                        output_dir,
+                        images_per_query,
+                        records,
+                        errors,
+                        counts,
+                    )
+                    continue
+
+            for image in downloaded:
+                record = dict(image)
+                record["clase"] = current_class
+                record["busqueda"] = query
+                record["archivo"] = str(query_dir / image["archivo"])
+                records.append(record)
+                counts[current_class] += 1
+
+            print(
+                f"{current_class} - {query}: "
+                f"{len(downloaded)} imágenes"
+            )
+            save_manifest(
+                output_dir,
+                images_per_query,
+                records,
+                errors,
+                counts,
+            )
+
+    return save_manifest(
+        output_dir,
+        images_per_query,
+        records,
+        errors,
+        counts,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -131,9 +198,14 @@ def main():
         default=Path("data/sources/openverse"),
     )
     parser.add_argument("--images-per-query", type=int, default=50)
+    parser.add_argument("--class-name", choices=QUERIES, default=None)
     args = parser.parse_args()
 
-    manifest = collect_openverse(args.output_dir, args.images_per_query)
+    manifest = collect_openverse(
+        args.output_dir,
+        args.images_per_query,
+        args.class_name,
+    )
     print(f"Imágenes descargadas: {manifest['cantidad']}")
     print(f"Búsquedas con error: {len(manifest['errores'])}")
     print(f"Manifiesto: {args.output_dir / 'openverse_manifest.json'}")
