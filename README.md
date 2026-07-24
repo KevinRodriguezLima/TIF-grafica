@@ -67,6 +67,29 @@ python -m src.content_classification.dataset \
 Las imágenes de referencia entregadas para evaluar el rompecabezas no deben
 mezclarse con el dataset de entrenamiento.
 
+## Dataset desde COCO
+
+Descargar y extraer las anotaciones oficiales de COCO 2017:
+
+```bash
+mkdir -p data/coco
+curl -L https://images.cocodataset.org/annotations/annotations_trainval2017.zip \
+  -o data/coco/annotations_trainval2017.zip
+unzip data/coco/annotations_trainval2017.zip -d data/coco
+```
+
+Crear un subconjunto balanceado de 400 imágenes por clase:
+
+```bash
+python -m src.content_classification.coco_dataset \
+  --annotations data/coco/annotations/instances_train2017.json \
+  --output-dir data/classification \
+  --images-per-class 400
+```
+
+El comando asigna cada imagen a su clase dominante y crea las particiones
+`train`, `validation` y `test` con proporciones 70 %, 15 % y 15 %.
+
 ## Entrenamiento
 
 ```bash
