@@ -194,3 +194,13 @@ python -m src.main run-all \
 
 El modelo MobileNetV2 necesita que `labels.json` se encuentre en la misma
 carpeta que el archivo `.keras`.
+
+Para comparar la reconstrucción con la referencia sin usarla durante el
+ensamblaje:
+
+```bash
+python -m src.rendering.reconstruction_evaluator \
+  --reference data/evaluation/imagen1/imagen_referencia_512.png \
+  --reconstruction results/imagen1/reconstructed.png \
+  --output results/imagen1/reconstruction_evaluation.json
+```

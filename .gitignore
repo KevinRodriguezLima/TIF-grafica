@@ -32,6 +32,7 @@ processed/contours/*
 !processed/contours/.gitkeep
 processed/edge_strips/*
 !processed/edge_strips/.gitkeep
+processed/imagen1/*
 
 models/*
 !models/.gitkeep

@@ -237,7 +237,320 @@ def _place_unmatched_pieces(
     return next_component_id
 
 
-def solve_assembly(
+def _edge_side(edge: dict[str, Any]) -> str:
+    normal_x, normal_y = edge["inward_normal"]
+    if abs(normal_x) > abs(normal_y):
+        return "left" if normal_x > 0 else "right"
+    return "top" if normal_y > 0 else "bottom"
+
+
+def _grid_shape(images: dict[str, np.ndarray]) -> tuple[int, int]:
+    total = len(images)
+    average_width = sum(image.shape[1] for image in images.values()) / total
+    average_height = sum(image.shape[0] for image in images.values()) / total
+    options = []
+
+    for rows in range(1, total + 1):
+        if total % rows != 0:
+            continue
+        columns = total // rows
+        if rows == 1 or columns == 1:
+            continue
+        ratio = (columns * average_width) / (rows * average_height)
+        options.append((abs(math.log(max(ratio, 1e-9))), rows, columns))
+
+    if not options:
+        return 1, total
+    _, rows, columns = min(options)
+    return rows, columns
+
+
+def _directional_scores(
+    graph: dict[str, Any],
+    features: dict[str, Any],
+) -> tuple[dict[tuple[str, str, str], float], dict[tuple[str, str, str], dict[str, Any]], dict[str, dict[str, dict[str, Any]]]]:
+    edge_sides = {}
+    piece_edges = {}
+    for piece in features.get("pieces", []):
+        piece_edges[piece["piece_id"]] = {}
+        for edge in piece.get("edges", []):
+            side = _edge_side(edge)
+            edge_sides[edge["edge_id"]] = side
+            piece_edges[piece["piece_id"]][side] = edge
+
+    scores = {}
+    matches = {}
+
+    def normalized_match(edge, reverse):
+        if not reverse:
+            return edge
+        swapped = dict(edge)
+        swapped["piece_a"], swapped["piece_b"] = edge["piece_b"], edge["piece_a"]
+        swapped["edge_a"], swapped["edge_b"] = edge["edge_b"], edge["edge_a"]
+        swapped["edge_a_geometry"], swapped["edge_b_geometry"] = (
+            edge["edge_b_geometry"],
+            edge["edge_a_geometry"],
+        )
+        return swapped
+
+    for edge in graph.get("edges", []):
+        side_a = edge_sides.get(edge["edge_a"])
+        side_b = edge_sides.get(edge["edge_b"])
+        piece_a = edge["piece_a"]
+        piece_b = edge["piece_b"]
+        score = float(edge["score"])
+
+        if side_a == "right" and side_b == "left":
+            key = (piece_a, piece_b, "horizontal")
+            directed_edge = normalized_match(edge, False)
+        elif side_a == "left" and side_b == "right":
+            key = (piece_b, piece_a, "horizontal")
+            directed_edge = normalized_match(edge, True)
+        elif side_a == "bottom" and side_b == "top":
+            key = (piece_a, piece_b, "vertical")
+            directed_edge = normalized_match(edge, False)
+        elif side_a == "top" and side_b == "bottom":
+            key = (piece_b, piece_a, "vertical")
+            directed_edge = normalized_match(edge, True)
+        else:
+            continue
+
+        if score > scores.get(key, -1.0):
+            scores[key] = score
+            matches[key] = directed_edge
+
+    return scores, matches, piece_edges
+
+
+def _axis_score(edge: dict[str, Any], side: str) -> float:
+    angle = float(edge["angle_degrees"]) % 180.0
+    target = 0.0 if side in {"top", "bottom"} else 90.0
+    difference = min(abs(angle - target), abs(angle - target + 180.0), abs(angle - target - 180.0))
+    return max(0.0, 1.0 - difference / 15.0)
+
+
+def _search_grid(
+    piece_ids: list[str],
+    rows: int,
+    columns: int,
+    scores: dict[tuple[str, str, str], float],
+    piece_edges: dict[str, dict[str, dict[str, Any]]],
+    beam_width: int = 20000,
+) -> tuple[list[str], float]:
+    states = [(0.0, tuple(), tuple(piece_ids))]
+
+    for position in range(rows * columns):
+        row = position // columns
+        column = position % columns
+        next_states = []
+
+        for current_score, order, remaining in states:
+            for piece_id in remaining:
+                added_score = 0.0
+                if column > 0:
+                    left_piece = order[position - 1]
+                    added_score += scores.get(
+                        (left_piece, piece_id, "horizontal"),
+                        -1.0,
+                    )
+                if row > 0:
+                    upper_piece = order[position - columns]
+                    added_score += scores.get(
+                        (upper_piece, piece_id, "vertical"),
+                        -1.0,
+                    )
+
+                edges = piece_edges[piece_id]
+                if row == 0:
+                    added_score += 0.35 * _axis_score(edges["top"], "top")
+                if row == rows - 1:
+                    added_score += 0.35 * _axis_score(edges["bottom"], "bottom")
+                if column == 0:
+                    added_score += 0.15 * _axis_score(edges["left"], "left")
+                if column == columns - 1:
+                    added_score += 0.15 * _axis_score(edges["right"], "right")
+
+                new_order = order + (piece_id,)
+                new_remaining = tuple(
+                    item for item in remaining if item != piece_id
+                )
+                next_states.append(
+                    (current_score + added_score, new_order, new_remaining)
+                )
+
+        next_states.sort(key=lambda item: item[0], reverse=True)
+        states = next_states[:beam_width]
+
+    best_score, best_order, _ = states[0]
+    return list(best_order), best_score
+
+
+def _grid_placements(
+    order: list[str],
+    rows: int,
+    columns: int,
+    matches: dict[tuple[str, str, str], dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    placements = {
+        order[0]: {
+            "piece_id": order[0],
+            "rotation_degrees": 0.0,
+            "translation": [0.0, 0.0],
+        }
+    }
+    selected = []
+
+    for position, piece_id in enumerate(order):
+        if position == 0:
+            continue
+        row = position // columns
+        column = position % columns
+        candidates = []
+
+        if column > 0:
+            left_piece = order[position - 1]
+            match = matches[(left_piece, piece_id, "horizontal")]
+            candidates.append(
+                _place_unknown_from_known(
+                    match,
+                    "piece_a",
+                    "edge_a_geometry",
+                    "piece_b",
+                    "edge_b_geometry",
+                    placements,
+                )
+            )
+            selected.append(match)
+
+        if row > 0:
+            upper_piece = order[position - columns]
+            match = matches[(upper_piece, piece_id, "vertical")]
+            candidates.append(
+                _place_unknown_from_known(
+                    match,
+                    "piece_a",
+                    "edge_a_geometry",
+                    "piece_b",
+                    "edge_b_geometry",
+                    placements,
+                )
+            )
+            selected.append(match)
+
+        rotations = np.radians(
+            [candidate["rotation_degrees"] for candidate in candidates]
+        )
+        average_rotation = math.degrees(
+            math.atan2(
+                float(np.mean(np.sin(rotations))),
+                float(np.mean(np.cos(rotations))),
+            )
+        ) % 360.0
+        translations = np.array(
+            [candidate["translation"] for candidate in candidates],
+            dtype=np.float64,
+        )
+        placements[piece_id] = {
+            "piece_id": piece_id,
+            "rotation_degrees": average_rotation,
+            "translation": [
+                float(value) for value in np.mean(translations, axis=0)
+            ],
+        }
+
+    min_x = min(item["translation"][0] for item in placements.values())
+    min_y = min(item["translation"][1] for item in placements.values())
+    normalized = []
+    for position, piece_id in enumerate(order):
+        placement = placements[piece_id]
+        normalized.append(
+            {
+                "piece_id": piece_id,
+                "rotation_degrees": placement["rotation_degrees"],
+                "translation": [
+                    placement["translation"][0] - min_x,
+                    placement["translation"][1] - min_y,
+                ],
+                "component_id": 0,
+                "grid_row": position // columns,
+                "grid_column": position % columns,
+            }
+        )
+    return normalized, selected
+
+
+def _solve_grid_assembly(
+    graph: dict[str, Any],
+    features: dict[str, Any],
+    images: dict[str, np.ndarray],
+) -> dict[str, Any] | None:
+    piece_ids = sorted(images)
+    if len(piece_ids) < 4:
+        return None
+    if any(len(piece.get("edges", [])) != 4 for piece in features.get("pieces", [])):
+        return None
+
+    rows, columns = _grid_shape(images)
+    scores, matches, piece_edges = _directional_scores(graph, features)
+    order, search_score = _search_grid(
+        piece_ids,
+        rows,
+        columns,
+        scores,
+        piece_edges,
+    )
+
+    required_matches = []
+    for position, piece_id in enumerate(order):
+        row = position // columns
+        column = position % columns
+        if column > 0:
+            required_matches.append(
+                (order[position - 1], piece_id, "horizontal")
+            )
+        if row > 0:
+            required_matches.append(
+                (order[position - columns], piece_id, "vertical")
+            )
+    if any(key not in matches for key in required_matches):
+        return None
+
+    placements, selected_edges = _grid_placements(
+        order,
+        rows,
+        columns,
+        matches,
+    )
+    selected_matches = [
+        {
+            "candidate_id": edge["candidate_id"],
+            "edge_a": edge["edge_a"],
+            "edge_b": edge["edge_b"],
+            "score": edge["score"],
+            "piece_a": edge["piece_a"],
+            "piece_b": edge["piece_b"],
+        }
+        for edge in selected_edges
+    ]
+    average_score = sum(
+        item["score"] for item in selected_matches
+    ) / len(selected_matches)
+    return {
+        "method": "global_directional_grid_solver_v1",
+        "solution_score": average_score,
+        "search_score": search_score,
+        "grid_rows": rows,
+        "grid_columns": columns,
+        "grid_order": order,
+        "pieces_used": len(placements),
+        "unplaced_pieces": [],
+        "placements": placements,
+        "selected_matches": selected_matches,
+        "rejected_matches": [],
+    }
+
+
+def _solve_greedy_assembly(
     graph_path: Path,
     features_path: Path,
     output_path: Path,
@@ -363,3 +676,34 @@ def solve_assembly(
     output_path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return result
 
+
+def solve_assembly(
+    graph_path: Path,
+    features_path: Path,
+    output_path: Path,
+    grid_gap: int = 24,
+    consistency_tolerance: float = 50.0,
+    max_overlap_ratio: float = 0.20,
+) -> dict[str, Any]:
+    graph = json.loads(Path(graph_path).read_text(encoding="utf-8"))
+    features = json.loads(Path(features_path).read_text(encoding="utf-8"))
+    images = _load_piece_images(features_path)
+    result = _solve_grid_assembly(graph, features, images)
+
+    if result is None:
+        return _solve_greedy_assembly(
+            graph_path,
+            features_path,
+            output_path,
+            grid_gap,
+            consistency_tolerance,
+            max_overlap_ratio,
+        )
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(result, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return result

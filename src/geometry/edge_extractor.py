@@ -141,7 +141,7 @@ def detect_edges(
                 continue
 
             direction = vector / length
-            inward = np.array([direction[1], -direction[0]], dtype=np.float32)
+            inward = np.array([-direction[1], direction[0]], dtype=np.float32)
             midpoint = (start + end) / 2.0
             angle = math.degrees(math.atan2(float(direction[1]), float(direction[0])))
             edge_id = f"{piece_id}_E{index}"
